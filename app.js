@@ -1,11 +1,12 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/+esm';
+import { SOPORTE_WA, SOPORTE_MAIL, TURNSTILE_SITEKEY, VERSION_LEGAL } from './config.js';
+import { TERMINOS, PRIVACIDAD } from './legales.js';
 
 const SUPABASE_URL = 'https://gwapsieolcvkjobbqmlj.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_4qWVXnj9Xivn7f-i9eXggQ_iSJDFYhq';
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 // Protección contra bots (Cloudflare Turnstile). Dejar vacío = apagado.
 // Para activarla: pegá acá la "Site key" de Turnstile y activá CAPTCHA en Supabase (ver guía de seguridad).
-const TURNSTILE_SITEKEY = '';
 const captchaBox = () => TURNSTILE_SITEKEY ? '<div id="cf-turnstile" style="margin:12px 0"></div>' : '';
 const captcha = () => (TURNSTILE_SITEKEY && window.turnstile) ? window.turnstile.getResponse() : undefined;
 function mountCaptcha() {
@@ -77,7 +78,7 @@ async function loadAll() {
   const { count } = await sb.from('notificaciones').select('id', { count: 'exact', head: true }).eq('usuario_id', S.user.id).eq('leida', false);
   S.unread = count || 0;
 }
-async function boot(session) { S.user = session.user; await loadProfile(); await sb.rpc('vincular_invitaciones'); await loadAll(); go('home'); }
+async function boot(session) { S.user = session.user; await loadProfile(); await sb.rpc('vincular_invitaciones'); S.isAdmin = (await sb.rpc('es_admin')).data === true; await loadAll(); go('home'); }
 
 /* ---------- navegación ---------- */
 function go(r, p = {}) { S.route = r; S.p = p; history.replaceState(null, '', '#' + r); draw(); window.scrollTo(0, 0); }
@@ -89,8 +90,8 @@ async function draw(keep) {
 
 /* ---------- pantallas ---------- */
 const screens = {};
-screens.bienvenida = () => `<main><div class="hero"><b class="logo" style="margin-bottom:auto">habita</b><h1>Tu alquiler,<br>sin vueltas.</h1><p>Propietarios e inquilinos, conectados. Pagos claros y respuestas en un solo lugar.</p></div><div style="padding-top:22px">${btn('Crear mi cuenta', 'registro')}${btn('Ya tengo cuenta', 'login', 'o')}</div></main>`;
-screens.registro = () => `${bar(back('bienvenida'))}<main>${ttl('', 'Creá tu cuenta', 'Empezá a gestionar tu alquiler con claridad.')}<form data-act="signup">${fld('Nombre y apellido', 'nombre', 'text', 'required autocomplete="name" placeholder="Ej: Lucía Fernández"')}${fld('Correo electrónico', 'email', 'email', 'required autocomplete="email" placeholder="ejemplo@gmail.com"')}${fld('DNI', 'dni', 'text', 'inputmode="numeric" placeholder="Ej: 35123456 (solo números)"')}${fld('Celular', 'celular', 'tel', 'placeholder="Ej: 11 5555 1234"')}${fld('Contraseña (mínimo 8 caracteres)', 'password', 'password', 'required minlength="8" autocomplete="new-password" placeholder="Mínimo 8 caracteres"')}<div class="f"><label>¿Cómo vas a usar Habita?</label><select name="rol"><option value="inquilino">Soy inquilino</option><option value="propietario">Soy propietario</option></select></div><label class="chk"><input type="checkbox" name="terms" required><span>Acepto los Términos y condiciones y la Política de privacidad de Habita.</span></label>${captchaBox()}<button class="btn" type="submit">Crear cuenta</button></form>${btn('¿Ya tenés cuenta? Iniciá sesión', 'login', 't')}</main>`;
+screens.bienvenida = () => `<main><div class="hero"><b class="logo" style="margin-bottom:auto">habita</b><h1>Tu alquiler,<br>sin vueltas.</h1><p>Propietarios e inquilinos, conectados. Pagos claros y respuestas en un solo lugar.</p></div><div style="padding-top:22px">${btn('Crear mi cuenta', 'registro')}${btn('Ya tengo cuenta', 'login', 'o')}<p class="note"><a href="#" data-legal="terminos" style="color:var(--blue)">Términos</a> · <a href="#" data-legal="privacidad" style="color:var(--blue)">Privacidad</a> · <button data-go="ayuda" style="color:var(--blue);display:inline">Ayuda</button></p></div></main>`;
+screens.registro = () => `${bar(back('bienvenida'))}<main>${ttl('', 'Creá tu cuenta', 'Empezá a gestionar tu alquiler con claridad.')}<form data-act="signup">${fld('Nombre y apellido', 'nombre', 'text', 'required autocomplete="name" placeholder="Ej: Lucía Fernández"')}${fld('Correo electrónico', 'email', 'email', 'required autocomplete="email" placeholder="ejemplo@gmail.com"')}${fld('DNI', 'dni', 'text', 'inputmode="numeric" placeholder="Ej: 35123456 (solo números)"')}${fld('Celular', 'celular', 'tel', 'placeholder="Ej: 11 5555 1234"')}${fld('Contraseña (mínimo 8 caracteres)', 'password', 'password', 'required minlength="8" autocomplete="new-password" placeholder="Mínimo 8 caracteres"')}<div class="f"><label>¿Cómo vas a usar Habita?</label><select name="rol"><option value="inquilino">Soy inquilino</option><option value="propietario">Soy propietario</option></select></div><label class="chk"><input type="checkbox" name="terms" required><span>Acepto los <a href="#" data-legal="terminos" style="color:var(--blue)">Términos y condiciones</a> y la <a href="#" data-legal="privacidad" style="color:var(--blue)">Política de privacidad</a> de Habita.</span></label>${captchaBox()}<button class="btn" type="submit">Crear cuenta</button></form>${btn('¿Ya tenés cuenta? Iniciá sesión', 'login', 't')}</main>`;
 screens.login = () => `${bar(back('bienvenida'))}<main>${ttl('', 'Qué bueno verte', 'Ingresá para seguir con tu alquiler.')}<form data-act="login">${fld('Correo electrónico', 'email', 'email', 'required autocomplete="email" placeholder="ejemplo@gmail.com"')}${fld('Contraseña', 'password', 'password', 'required autocomplete="current-password" placeholder="Tu contraseña"')}${captchaBox()}<button class="btn" type="submit">Iniciar sesión</button></form>${btn('Olvidé mi contraseña', 'recuperar', 'o')}${btn('¿Sos nuevo? Creá tu cuenta', 'registro', 't')}</main>`;
 
 screens.home = async () => {
@@ -184,7 +185,7 @@ screens.notif = async () => {
 
 screens.perfil = () => {
   const p = S.profile; const ini = (p.nombre_completo || '?').split(' ').map(x => x[0]).slice(0, 2).join('').toUpperCase();
-  return `${bar()}<main>${ttl('Tu cuenta', 'Mi perfil', '')}<div class="sp" style="justify-content:flex-start;gap:16px;margin-bottom:18px"><div class="av">${esc(ini)}</div><div><b style="font-size:18px">${esc(p.nombre_completo)}</b><br>${pill(rolTxt(), 'b')}</div></div><div class="card"><b>Datos personales</b>${kv('Correo electrónico', esc(S.user.email))}${kv('DNI', esc(p.dni || '—'))}${kv('Celular', esc(p.celular || '—'))}</div>${isOwner() ? `<form class="card" data-act="cuenta"><b>Cuenta para cobrar</b><div class="mut" style="font-size:14px;margin:4px 0 12px">Tu inquilino va a ver estos datos para transferirte el alquiler.</div>${fld('Titular de la cuenta', 'titular', 'text', 'placeholder="Ej: Martín Álvarez" value="' + esc(p.cuenta_titular || '') + '"')}${fld('Banco o billetera', 'banco', 'text', 'placeholder="Ej: Banco Galicia o Mercado Pago" value="' + esc(p.cuenta_banco || '') + '"')}${fld('Alias', 'alias', 'text', 'placeholder="Ej: martin.alquileres" value="' + esc(p.cuenta_alias || '') + '"')}${fld('CBU o CVU (22 números)', 'cbu', 'text', 'inputmode="numeric" maxlength="22" placeholder="Ej: 0070000030004123456789" value="' + esc(p.cuenta_cbu || '') + '"')}<button class="btn" type="submit" style="margin-top:0">Guardar datos de cobro</button></form>` : ''}${abtn('Cambiar a ' + (isOwner() ? 'inquilino' : 'propietario'), 'rol', 'o', isOwner() ? 'inquilino' : 'propietario')}${abtn('Cerrar sesión', 'logout', 'o')}<p class="note">Habita · Versión 0.6 (seguridad)</p></main>${nav(3)}`;
+  return `${bar()}<main>${ttl('Tu cuenta', 'Mi perfil', '')}<div class="sp" style="justify-content:flex-start;gap:16px;margin-bottom:18px"><div class="av">${esc(ini)}</div><div><b style="font-size:18px">${esc(p.nombre_completo)}</b><br>${pill(rolTxt(), 'b')}</div></div><div class="card"><b>Datos personales</b>${kv('Correo electrónico', esc(S.user.email))}${kv('DNI', esc(p.dni || '—'))}${kv('Celular', esc(p.celular || '—'))}</div>${isOwner() ? `<form class="card" data-act="cuenta"><b>Cuenta para cobrar</b><div class="mut" style="font-size:14px;margin:4px 0 12px">Tu inquilino va a ver estos datos para transferirte el alquiler.</div>${fld('Titular de la cuenta', 'titular', 'text', 'placeholder="Ej: Martín Álvarez" value="' + esc(p.cuenta_titular || '') + '"')}${fld('Banco o billetera', 'banco', 'text', 'placeholder="Ej: Banco Galicia o Mercado Pago" value="' + esc(p.cuenta_banco || '') + '"')}${fld('Alias', 'alias', 'text', 'placeholder="Ej: martin.alquileres" value="' + esc(p.cuenta_alias || '') + '"')}${fld('CBU o CVU (22 números)', 'cbu', 'text', 'inputmode="numeric" maxlength="22" placeholder="Ej: 0070000030004123456789" value="' + esc(p.cuenta_cbu || '') + '"')}<button class="btn" type="submit" style="margin-top:0">Guardar datos de cobro</button></form>` : ''}<div class="card" style="padding:6px 20px">${row('chat', 'Ayuda y preguntas frecuentes', 'Respuestas rápidas y soporte', 'ayuda')}${lrow('terminos', 'Términos y condiciones')}${lrow('privacidad', 'Política de privacidad')}${S.isAdmin ? row('folder', 'Panel de administración', 'Contratos, usuarios y números', 'admin') : ''}</div>${abtn('Cambiar a ' + (isOwner() ? 'inquilino' : 'propietario'), 'rol', 'o', isOwner() ? 'inquilino' : 'propietario')}${abtn('Cerrar sesión', 'logout', 'o')}<p class="note">Habita · Versión 0.7</p></main>${nav(3)}`;
 };
 
 
@@ -208,6 +209,43 @@ screens.pagar = async () => {
   return `${bar(back('home'))}<main>${ttl('Inquilino', 'Pagá tu alquiler', per(p.periodo))}<div class="card navy"><div class="mut">Monto a transferir</div><div class="big" style="margin:4px 0 10px">${money(p.monto)}</div><button class="btn o" style="margin-top:0;color:#fff;border-color:#ffffff55" data-act="copiar" data-t="${Math.round(p.monto)}">Copiar monto</button><div class="mut" style="margin-top:10px;font-size:13px">Vence el ${fd(p.fecha_vencimiento)}</div></div>${cuenta}${informar}</main>${nav(1)}`;
 };
 
+
+const lrow = (k, t) => `<button class="row" data-legal="${k}"><span class="ic">${I('rec')}</span><span class="rc"><b>${t}</b><small>Texto provisorio</small></span>${I('chev')}</button>`;
+const legalHtml = items => items.map(([t, x]) => `<h3>${esc(t)}</h3><p>${esc(x).replace(/\[[^\]]+\]/g, m => `<mark>${m}</mark>`)}</p>`).join('');
+function showLegal(kind) {
+  document.querySelector('.ov')?.remove();
+  const d = document.createElement('div'); d.className = 'ov';
+  d.innerHTML = `<div class="ovc" role="dialog" aria-modal="true"><div class="sp"><b style="font-size:18px">${kind === 'terminos' ? 'Términos y condiciones' : 'Política de privacidad'}</b><button class="ib" data-close aria-label="Cerrar">✕</button></div><div class="al" style="margin:12px 0"><span>${I('bell')}</span><span>Texto provisorio: está pendiente de revisión legal y puede cambiar. Lo resaltado se completa antes del lanzamiento.</span></div>${legalHtml(kind === 'terminos' ? TERMINOS : PRIVACIDAD)}<button class="btn" data-close>Cerrar</button></div>`;
+  document.body.appendChild(d);
+}
+const FAQ = [
+  ['¿Cómo invito a mi inquilino?', 'Entrá a "Nuevo contrato", cargá los datos y escribí su correo. Si todavía no tiene cuenta, la app te arma un mensaje para mandarle por WhatsApp. Cuando se registre con ese mismo correo, el contrato le aparece solo.'],
+  ['¿Cómo pago el alquiler?', 'Tocá "Pagar alquiler": vas a ver el monto y los datos de la cuenta de tu propietario, con botones para copiarlos. Hacés la transferencia desde tu banco y después tocás "Ya transferí, avisar". Podés adjuntar el comprobante.'],
+  ['¿Qué significa "Para confirmar"?', 'Que el inquilino avisó que transfirió y falta que el propietario confirme que recibió el dinero. Recién entonces el pago queda como pagado y se genera el recibo.'],
+  ['¿Habita guarda mi dinero?', 'No. El dinero va directo de la cuenta del inquilino a la del propietario. Habita solo registra el pago.'],
+  ['¿Cómo se calcula el ajuste por IPC?', 'La app muestra un porcentaje estimado con los datos públicos del INDEC. El monto definitivo es el que dice tu contrato, así que conviene que ambos lo verifiquen antes de pagar o cobrar.'],
+  ['¿Qué documentos tengo que subir?', 'Como inquilino, tu DNI, tus recibos de sueldo, un certificado laboral y una garantía (propietaria o seguro de caución). El propietario los revisa y los marca como verificados.'],
+  ['¿Cómo hago un reclamo?', 'Andá a Reclamos y tocá "Crear reclamo". Elegí la categoría, contá qué pasó y sumá fotos. Vas a poder seguir el estado paso a paso.'],
+  ['¿Quién ve mis datos?', 'Cada persona ve solo la información de sus propios contratos. Tu DNI es privado. Más detalle en la Política de privacidad.'],
+  ['Olvidé mi contraseña', 'En la pantalla de inicio de sesión tocá "Olvidé mi contraseña" y te mandamos un correo con un link para elegir una nueva.'],
+  ['¿Cómo doy de baja mi cuenta?', 'Escribinos por los medios de contacto de esta pantalla y la damos de baja.']
+];
+screens.ayuda = () => {
+  const wa = SOPORTE_WA ? `<a class="btn" target="_blank" rel="noopener" href="https://wa.me/${esc(SOPORTE_WA)}?text=${encodeURIComponent('Hola, necesito ayuda con Habita.')}">Escribirnos por WhatsApp</a>` : '';
+  const ml = SOPORTE_MAIL ? `<a class="btn o" href="mailto:${esc(SOPORTE_MAIL)}">Escribirnos por correo</a>` : '';
+  return `${bar(back(S.user ? 'perfil' : 'bienvenida'))}<main>${ttl('', 'Ayuda', 'Respuestas rápidas a lo más común.')}${FAQ.map(([q, a]) => `<details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join('')}${wa || ml ? `<div class="sec">¿Seguís con dudas?</div>${wa}${ml}` : '<p class="note">Pronto vas a poder escribirnos desde acá.</p>'}</main>${S.user ? nav(3) : ''}`;
+};
+screens.admin = async () => {
+  if (!S.isAdmin) return screens.perfil();
+  const [a, b, c] = await Promise.all([sb.rpc('admin_resumen'), sb.rpc('admin_contratos'), sb.rpc('admin_usuarios')]);
+  if (a.error) throw a.error;
+  const r = a.data, cs = b.data || [], us = c.data || [];
+  const st = (n, l) => `<div class="card" style="margin:0;padding:14px"><div class="mid" style="margin:0;font-size:24px">${n}</div><div class="mut" style="font-size:13px">${l}</div></div>`;
+  const filaC = x => `<div class="row"><span class="rc"><b>${esc(x.direccion)}</b><small>${esc(x.propietario)} → ${esc(x.inquilino || '—')}${x.invitado ? ' (invitado)' : ''}<br>${money(x.monto_actual)} · vence ${fd(x.fecha_fin)}</small></span>${x.estado === 'vigente' ? pill('Vigente', 'g') : pill(esc(x.estado))}</div>`;
+  const filaU = x => `<div class="row"><span class="rc"><b>${esc(x.nombre_completo)}</b><small>${esc(x.email)}<br>Alta ${fd((x.creado_en || '').slice(0, 10))}${x.terminos_version ? ' · términos ' + esc(x.terminos_version) : ''}</small></span>${pill(esc(x.rol), 'b')}</div>`;
+  return `${bar(back('perfil'))}<main>${ttl('Administración', 'Panel de Habita', 'Los números del negocio de un vistazo.')}<div class="two" style="margin-bottom:16px">${st(r.usuarios, 'Usuarios')}${st(r.contratos_vigentes, 'Contratos vigentes')}${st(r.contratos_invitados, 'Inquilinos sin registrarse')}${st(r.pagos_por_confirmar, 'Pagos por confirmar')}${st(r.pagos_pagados, 'Pagos realizados')}${st(r.reclamos_abiertos, 'Reclamos abiertos')}${st(r.documentos_en_revision, 'Documentos en revisión')}${st(r.pagos_pendientes, 'Pagos pendientes o vencidos')}</div><div class="card navy"><div class="mut">Total pagado entre las partes</div><div class="mid">${money(r.monto_pagado)}</div><div class="mut" style="margin-top:8px">Comisión estimada de contratos vigentes</div><div class="mid" style="font-size:22px">${money(r.comision_estimada)}</div></div><div class="sec">Contratos</div><div class="card" style="padding:6px 20px">${cs.map(filaC).join('') || '<div class="empty">Sin contratos.</div>'}</div><div class="sec">Usuarios</div><div class="card" style="padding:6px 20px">${us.map(filaU).join('') || '<div class="empty">Sin usuarios.</div>'}</div></main>${nav(3)}`;
+};
+
 /* ---------- acciones ---------- */
 const SAFE = [/^Tenés que/, /^No hay ningún/, /^El inquilino/, /^La contraseña/, /^El alias/, /^El CBU/, /^Correo o contraseña/, /^Solo /, /^Sin acceso/, /^Hiciste muchas/, /^No se pudo consultar/, /^El INDEC/, /^No se puede/, /^Falta el correo/];
 const ERR_MAP = [[/Invalid login credentials/i, 'Correo o contraseña incorrectos.'], [/already registered|already been registered/i, 'Ese correo ya tiene una cuenta. Probá iniciar sesión.'], [/Email not confirmed/i, 'Todavía tenés que confirmar tu correo. Revisá tu bandeja de entrada.'], [/rate limit|too many requests|over_email_send_rate_limit|429/i, 'Hiciste muchos intentos. Esperá unos minutos y probá de nuevo.'], [/Password should be|weak_password/i, 'La contraseña es muy débil. Usá al menos 8 caracteres.'], [/captcha/i, 'No pudimos verificar que sos una persona. Probá de nuevo.'], [/Failed to fetch|NetworkError|network/i, 'No hay conexión. Revisá tu internet y probá de nuevo.'], [/violates check constraint|invalid input syntax|value too long/i, 'Revisá los datos que ingresaste: hay alguno inválido.'], [/row-level security|permission denied/i, 'No tenés permiso para hacer esto.'], [/duplicate key|unique constraint/i, 'Ese dato ya existe.'], [/mime type|maximum allowed size|payload too large/i, 'El archivo es muy pesado o de un tipo no permitido. Usá una foto o un PDF de hasta 10 MB.']];
@@ -221,13 +259,13 @@ const errMsg = e => {
 const acts = {
   async signup(v) {
     if ((v.password || '').length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres.');
-    const { data, error } = await sb.auth.signUp({ email: v.email.trim(), password: v.password, options: { captchaToken: captcha(), data: { nombre_completo: v.nombre.trim(), dni: (v.dni || '').trim(), celular: (v.celular || '').trim(), rol: v.rol } } });
+    const { data, error } = await sb.auth.signUp({ email: v.email.trim(), password: v.password, options: { captchaToken: captcha(), data: { terminos_version: VERSION_LEGAL, nombre_completo: v.nombre.trim(), dni: (v.dni || '').trim(), celular: (v.celular || '').trim(), rol: v.rol } } });
     if (error) throw error;
     if (!data.session) { toast('Te enviamos un correo para confirmar tu cuenta. Después iniciá sesión.'); return go('login'); }
     await boot(data.session);
   },
   async login(v) { const { data, error } = await sb.auth.signInWithPassword({ email: v.email.trim(), password: v.password, options: { captchaToken: captcha() } }); if (error) throw new Error(error.message === 'Invalid login credentials' ? 'Correo o contraseña incorrectos.' : error.message); await boot(data.session); },
-  async logout() { await sb.auth.signOut(); S.user = null; S.profile = null; S.cs = []; go('bienvenida'); },
+  async logout() { await sb.auth.signOut(); S.user = null; S.profile = null; S.cs = []; S.isAdmin = false; go('bienvenida'); },
   async rol(v, f, id) { const { error } = await sb.from('profiles').update({ rol: id }).eq('id', S.user.id); if (error) throw error; S.role = id; S.profile.rol = id; S.cid = null; await loadAll(); go('home'); },
   async nuevo(v) {
     const { data, error } = await sb.rpc('crear_contrato', { p_direccion: v.direccion.trim(), p_barrio: v.barrio, p_ciudad: v.provincia === 'CABA' ? 'Ciudad Autónoma de Buenos Aires' : v.ciudad, p_provincia: v.provincia, p_email_inquilino: v.email, p_fecha_inicio: v.inicio, p_duracion_meses: +v.meses, p_monto: num(v.monto), p_frecuencia: +v.freq, p_dia_venc: +v.dia, p_com_prop: +v.cp || 0, p_com_inq: +v.ci || 0 });
@@ -332,6 +370,8 @@ document.addEventListener('submit', async e => {
   if (b) b.disabled = false;
 });
 document.addEventListener('click', async e => {
+  if (e.target.closest('[data-close]') || e.target.classList.contains('ov')) { document.querySelector('.ov')?.remove(); return; }
+  const lg = e.target.closest('[data-legal]'); if (lg) { e.preventDefault(); showLegal(lg.dataset.legal); return; }
   const g = e.target.closest('[data-go]');
   if (g) { if (g.dataset.id && ['contrato', 'pagos'].includes(g.dataset.go)) S.cid = g.dataset.id; return go(g.dataset.go, g.dataset.id ? { id: g.dataset.id } : {}); }
   const a = e.target.closest('button[data-act]');
